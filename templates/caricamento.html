@@ -1,117 +1,203 @@
-{% extends "base.html" %}
-{% set active = "caricamento" %}
-{% block content %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caricamento Pickup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 30px;
+            color: #1f2937;
+        }
 
-<div class="d-flex gap-3 mb-3">
-  <button class="btn btn-outline-secondary btn-sm active" id="btn-list" onclick="showTab('list')">&#9776; Elenco</button>
-  <button class="btn btn-outline-secondary btn-sm" id="btn-new" onclick="showTab('new')">&#8679; Nuova importazione</button>
-</div>
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
 
-<!-- Elenco -->
-<div id="tab-list">
-  <div class="card">
-    <div class="card-header">Storico caricamenti</div>
-    <div class="card-body p-0">
-      <table class="table table-hover mb-0">
-        <thead><tr>
-          <th>Data inserimento</th><th>Data riferimento</th>
-          <th>Num. inseriti</th><th>File</th>
-        </tr></thead>
-        <tbody>
-          {% for u in uploads %}
-          <tr>
-            <td>{{ u.upload_datetime }}</td>
-            <td>{{ u.ref_date }}</td>
-            <td>{{ u.num_inserted }}</td>
-            <td>{{ u.filename }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="4" class="text-center text-muted">Nessun caricamento</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+        h1 {
+            margin-bottom: 20px;
+            color: #111827;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input[type="date"],
+        input[type="file"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: #fff;
+        }
+
+        button {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .flash {
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .flash.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+
+        .flash.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        th, td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        tr:hover td {
+            background: #f9fafb;
+        }
+
+        .muted {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .top-links {
+            margin-bottom: 20px;
+        }
+
+        .top-links a {
+            text-decoration: none;
+            color: #2563eb;
+            font-weight: bold;
+            margin-right: 16px;
+        }
+
+        .top-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-links">
+            <a href="{{ url_for('pickup') }}">Vai al pickup</a>
+        </div>
+
+        <h1>Caricamento file pickup PMS</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <form method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="ref_date">Data di riferimento</label>
+                    <input type="date" name="ref_date" id="ref_date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="file">File Excel PMS</label>
+                    <input type="file" name="file" id="file" accept=".xlsx,.xls" required>
+                </div>
+
+                <button type="submit">Carica file</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Storico caricamenti</h2>
+
+            {% if uploads %}
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Data upload</th>
+                                <th>Data riferimento</th>
+                                <th>Righe inserite</th>
+                                <th>Nome file</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in uploads %}
+                                <tr>
+                                    <td>{{ u.id }}</td>
+                                    <td>{{ u.upload_datetime }}</td>
+                                    <td>{{ u.ref_date }}</td>
+                                    <td>{{ u.num_inserted }}</td>
+                                    <td>{{ u.filename }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="muted">Nessun caricamento presente.</p>
+            {% endif %}
+        </div>
     </div>
-  </div>
-</div>
-
-<!-- Nuova importazione -->
-<div id="tab-new" style="display:none">
-  <div class="card" style="max-width:600px">
-    <div class="card-header">Nuova importazione</div>
-    <div class="card-body">
-      <form method="POST" enctype="multipart/form-data">
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">Formato file</label>
-          <select name="formato" class="form-select" id="formatoSelect" onchange="aggiornaFormato(this.value)">
-            <option value="specifico" selected>Formato PMS (doppia intestazione automatica)</option>
-            <option value="generico">Formato generico (colonne nominate)</option>
-          </select>
-          <div class="form-text text-muted" id="formatoHelp">
-            Legge automaticamente: col. A=Data, col. K=Camere, col. L=ADR, col. O=Ricavo
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">Data di riferimento</label>
-          <input type="date" name="ref_date" class="form-control" required>
-        </div>
-
-        <div class="mb-3" id="skipRowsDiv" style="display:none">
-          <label class="form-label fw-bold">Ignora le prime N righe</label>
-          <input type="number" name="skip_rows" class="form-control" value="0" min="0">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-bold">File Excel</label>
-          <div class="border border-2 rounded p-5 text-center text-muted"
-               style="border-style:dashed!important; cursor:pointer"
-               onclick="document.getElementById('fileInput').click()">
-            <div id="dropLabel">&#128194; Clicca oppure trascina qui il file da importare</div>
-          </div>
-          <input type="file" id="fileInput" name="file" accept=".xlsx,.xls"
-                 style="display:none" required onchange="updateLabel(this)">
-        </div>
-
-        <button type="submit" class="btn btn-success w-100">&#8679; Carica</button>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-function showTab(t) {
-  document.getElementById('tab-list').style.display = t==='list' ? '' : 'none';
-  document.getElementById('tab-new').style.display = t==='new' ? '' : 'none';
-}
-function updateLabel(input) {
-  if (input.files[0])
-    document.getElementById('dropLabel').textContent = '✅ ' + input.files[0].name;
-}
-function aggiornaFormato(val) {
-  const skipDiv  = document.getElementById('skipRowsDiv');
-  const helpText = document.getElementById('formatoHelp');
-  if (val === 'specifico') {
-    skipDiv.style.display = 'none';
-    helpText.textContent = 'Legge automaticamente: col. A=Data, col. K=Camere, col. L=ADR, col. O=Ricavo';
-  } else {
-    skipDiv.style.display = '';
-    helpText.textContent = 'Il file deve avere colonne con nomi: Giorno/Data, CAM/RNS, ADR, Totale/Revenue';
-  }
-}
-const dropZone = document.querySelector('.border.border-2');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background='#e8f8f5'; });
-dropZone.addEventListener('dragleave', () => dropZone.style.background='');
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.style.background='';
-  const file = e.dataTransfer.files[0];
-  if (file) {
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    document.getElementById('fileInput').files = dt.files;
-    document.getElementById('dropLabel').textContent = '✅ ' + file.name;
-  }
-});
-</script>
-{% endblock %}
+</body>
+</html>
