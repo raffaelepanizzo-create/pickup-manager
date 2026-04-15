@@ -303,7 +303,7 @@ def caricamento():
                     ref_date_str = request.form.get("ref_date")
                     skip_rows    = int(request.form.get("skip_rows", 0))
                     file         = request.files.get("file")
-                    formato = "specifico"  # forza sempre il formato PMS
+                        formato      = request.form.get("formato", "specifico")
 
         if not file or not ref_date_str:
                         flash("Seleziona un file e una data di riferimento.", "error")
