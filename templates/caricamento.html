@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caricamento Pickup</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -48,7 +49,6 @@
             border: 1px solid #d1d5db;
             border-radius: 8px;
             font-size: 14px;
-            box-sizing: border-box;
             background: #fff;
         }
 
@@ -70,134 +70,102 @@
             padding: 14px 16px;
             border-radius: 8px;
             margin-bottom: 16px;
-            font-size: 14px;
         }
 
         .flash.success {
             background: #dcfce7;
             color: #166534;
-            border: 1px solid #86efac;
         }
 
         .flash.error {
             background: #fee2e2;
             color: #991b1b;
-            border: 1px solid #fca5a5;
-        }
-
-        .table-wrap {
-            overflow-x: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            background: #fff;
         }
 
         th, td {
             padding: 12px 10px;
             border-bottom: 1px solid #e5e7eb;
             text-align: left;
-            font-size: 14px;
         }
 
         th {
             background: #f3f4f6;
-            color: #111827;
-        }
-
-        tr:hover td {
-            background: #f9fafb;
-        }
-
-        .muted {
-            color: #6b7280;
-            font-size: 14px;
-        }
-
-        .top-links {
-            margin-bottom: 20px;
-        }
-
-        .top-links a {
-            text-decoration: none;
-            color: #2563eb;
-            font-weight: bold;
-            margin-right: 16px;
-        }
-
-        .top-links a:hover {
-            text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="top-links">
-            <a href="{{ url_for('pickup') }}">Vai al pickup</a>
-        </div>
+<div class="container">
 
-        <h1>Caricamento file pickup PMS</h1>
+    <h1>Caricamento file pickup PMS</h1>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="flash {{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="card">
-            <form method="POST" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label for="ref_date">Data di riferimento</label>
-                    <input type="date" name="ref_date" id="ref_date" value="{{ today }}" required>
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">
+                    {{ message }}
                 </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-                <div class="form-group">
-                    <label for="file">File Excel PMS</label>
-                    <input type="file" name="file" id="file" accept=".xlsx,.xls" required>
-                </div>
+    <!-- FORM -->
+    <div class="card">
+        <form method="POST" enctype="multipart/form-data">
 
-                <button type="submit">Carica file</button>
-            </form>
-        </div>
+            <div class="form-group">
+                <label for="ref_date">Data di riferimento</label>
+                <input type="date" name="ref_date" id="ref_date" value="{{ today }}" required>
+            </div>
 
-        <div class="card">
-            <h2>Storico caricamenti</h2>
+            <div class="form-group">
+                <label for="file">File Excel PMS</label>
+                <input type="file" name="file" id="file" accept=".xlsx,.xls" required>
+            </div>
 
-            {% if uploads %}
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Data upload</th>
-                                <th>Data riferimento</th>
-                                <th>Righe inserite</th>
-                                <th>Nome file</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for u in uploads %}
-                                <tr>
-                                    <td>{{ u.id }}</td>
-                                    <td>{{ u.upload_datetime }}</td>
-                                    <td>{{ u.ref_date }}</td>
-                                    <td>{{ u.num_inserted }}</td>
-                                    <td>{{ u.filename }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p class="muted">Nessun caricamento presente.</p>
-            {% endif %}
-        </div>
+            <button type="submit">Carica file</button>
+
+        </form>
     </div>
+
+    <!-- STORICO -->
+    <div class="card">
+        <h2>Storico caricamenti</h2>
+
+        {% if uploads %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Data upload</th>
+                    <th>Data riferimento</th>
+                    <th>Righe</th>
+                    <th>File</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in uploads %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td>{{ u.upload_datetime }}</td>
+                    <td>{{ u.ref_date }}</td>
+                    <td>{{ u.num_inserted }}</td>
+                    <td>{{ u.filename }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <p>Nessun caricamento presente.</p>
+        {% endif %}
+    </div>
+
+</div>
 </body>
 </html>
