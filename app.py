@@ -1,17 +1,24 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 import pandas as pd
 import os
 import sqlite3
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from functools import wraps
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "pickup_secret_key"
+app.secret_key = os.environ.get("SECRET_KEY", "pickup_secret_key_dev")
 
 UPLOAD_FOLDER = "uploads"
 DB_PATH = "pickup.db"
 CAPACITY = 55
 ALLOWED_EXTENSIONS = {"xlsx", "xls"}
+
+APP_USERNAME = os.environ.get("APP_USERNAME", "admin")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "changeme")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -49,6 +56,17 @@ def init_db():
 
 
 init_db()
+
+
+# ─── AUTH ───────────────────────────────────────────────────────────────────
+
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+    return wrapped_view
 
 
 # ─── HELPERS ────────────────────────────────────────────────────────────────
@@ -179,6 +197,30 @@ def build_pickup_table(data_today, data_yesterday):
     return rows
 
 
+def build_daily_chart_series(data_today, data_yest):
+    today_map = {d["stay_date"]: d for d in data_today}
+    yest_map = {d["stay_date"]: d for d in data_yest}
+    all_dates = sorted(set(today_map.keys()) | set(yest_map.keys()))
+
+    labels = [f"{d[8:10]}/{d[5:7]}" for d in all_dates]
+    today_rns = [(today_map.get(d, {}).get("rns") or 0) for d in all_dates]
+    yest_rns = [(yest_map.get(d, {}).get("rns") or 0) for d in all_dates]
+    today_rev = [round((today_map.get(d, {}).get("revenue") or 0), 2) for d in all_dates]
+    yest_rev = [round((yest_map.get(d, {}).get("revenue") or 0), 2) for d in all_dates]
+    today_occ = [calc_occ(today_map.get(d, {}).get("rns") or 0) for d in all_dates]
+    today_revpar = [calc_revpar(today_map.get(d, {}).get("revenue") or 0) for d in all_dates]
+
+    return {
+        "labels": labels,
+        "today_rns": today_rns,
+        "yest_rns": yest_rns,
+        "today_rev": today_rev,
+        "yest_rev": yest_rev,
+        "today_occ": today_occ,
+        "today_revpar": today_revpar,
+    }
+
+
 # ─── PARSER EXCEL PMS ───────────────────────────────────────────────────────
 
 def parse_excel_formato_specifico(filepath):
@@ -201,11 +243,6 @@ def parse_excel_formato_specifico(filepath):
             f"Formato Excel non valido: trovate solo {df_raw.shape[1]} colonne, ma ne servono almeno 15."
         )
 
-    # Colonne PMS
-    # A = data
-    # K = RNS
-    # L = ADR
-    # O = Revenue
     df = pd.DataFrame()
     df["DATA"] = df_raw.iloc[:, 0]
     df["RNS"] = df_raw.iloc[:, 10]
@@ -227,11 +264,9 @@ def parse_excel_formato_specifico(filepath):
     df["ADR"] = pd.to_numeric(df["ADR"], errors="coerce").fillna(0.0)
     df["REVENUE"] = pd.to_numeric(df["REVENUE"], errors="coerce").fillna(0.0)
 
-    # Se ADR è 0 ma ci sono RNS e Revenue, lo ricalcolo
     mask = (df["ADR"] == 0) & (df["RNS"] > 0)
     df.loc[mask, "ADR"] = (df.loc[mask, "REVENUE"] / df.loc[mask, "RNS"]).round(2)
 
-    # Tengo solo righe con data valida; se vuoi anche le righe totalmente a zero, lascia così.
     if df.empty:
         raise ValueError("Nessun dato valido trovato nel file.")
 
@@ -240,12 +275,38 @@ def parse_excel_formato_specifico(filepath):
 
 # ─── ROUTES ─────────────────────────────────────────────────────────────────
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if username == APP_USERNAME and password == APP_PASSWORD:
+            session["logged_in"] = True
+            session["username"] = username
+            flash("Accesso effettuato.", "success")
+            return redirect(url_for("pickup"))
+
+        flash("Credenziali non valide.", "error")
+        return redirect(url_for("login"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("Logout effettuato.", "success")
+    return redirect(url_for("login"))
+
+
 @app.route("/")
 def index():
     return redirect(url_for("pickup"))
 
 
 @app.route("/pickup")
+@login_required
 def pickup():
     available = get_available_ref_dates()
 
@@ -265,6 +326,13 @@ def pickup():
             ref_dt=None,
             prev_dt=None,
             capacity=CAPACITY,
+            daily_labels=[],
+            daily_rns_today=[],
+            daily_rns_yest=[],
+            daily_rev_today=[],
+            daily_rev_yest=[],
+            daily_occ_today=[],
+            daily_revpar_today=[],
         )
 
     ref_date = request.args.get("ref_date", available[0])
@@ -298,6 +366,8 @@ def pickup():
     ]
     chart_today = [round(tot_yest_rev, 2), round(tot_today_rev, 2)]
 
+    daily = build_daily_chart_series(data_today, data_yest)
+
     return render_template(
         "pickup.html",
         available=available,
@@ -313,10 +383,18 @@ def pickup():
         ref_dt=ref_dt,
         prev_dt=prev_dt,
         capacity=CAPACITY,
+        daily_labels=daily["labels"],
+        daily_rns_today=daily["today_rns"],
+        daily_rns_yest=daily["yest_rns"],
+        daily_rev_today=daily["today_rev"],
+        daily_rev_yest=daily["yest_rev"],
+        daily_occ_today=daily["today_occ"],
+        daily_revpar_today=daily["today_revpar"],
     )
 
 
 @app.route("/caricamento", methods=["GET", "POST"])
+@login_required
 def caricamento():
     if request.method == "POST":
         ref_date_str = request.form.get("ref_date")
@@ -394,8 +472,6 @@ def caricamento():
         today=today
     )
 
-
-# ─── AVVIO APP ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
