@@ -424,6 +424,9 @@ var dailyRevToday = {{ (daily_rev_today or [])|tojson }};
 var dailyRevYest  = {{ (daily_rev_yest  or [])|tojson }};
 var dailyRnsToday = {{ (daily_rns_today or [])|tojson }};
 var dailyRnsYest  = {{ (daily_rns_yest  or [])|tojson }};
+var dailyTargetOcc = {{ (daily_target_occ or []) |tojson }};
+var dailyTargetRev = {{ (daily_target_rev or []) |tojson }};
+var dailyTargetRns = {{ (daily_target_rns or []) |tojson }};
 
 function cumulative(arr){
   var out=[], s=0;
@@ -433,33 +436,16 @@ function cumulative(arr){
 
 // Revenue Pace: area chart today vs yesterday (valori giornalieri)
 (function(){
-  var ctx = document.getElementById('revenuePace');
+  var ctx = document.getElementById('chartRevPace');
   if(!ctx || !dailyLabels.length) return;
   new Chart(ctx, {
     type: 'line',
     data: {
       labels: dailyLabelsFmt,
       datasets: [
-        {
-          label: 'Today',
-          data: dailyRevToday,
-          borderColor: COLOR.main,
-          backgroundColor: COLOR.mainBg,
-          fill: true,
-          tension: 0.25,
-          pointRadius: 0,
-          borderWidth: 2
-        },
-        {
-          label: 'Yesterday',
-          data: dailyRevYest,
-          borderColor: COLOR.gray,
-          borderDash: [4,4],
-          fill: false,
-          tension: 0.25,
-          pointRadius: 0,
-          borderWidth: 1.5
-        }
+        { label: 'Today', data: dailyRevToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
+        { label: 'Yesterday', data: dailyRevYest, borderColor: COLOR.gray, borderDash: [4,4], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Target', data: dailyTargetRev, borderColor: '#e63946', borderDash: [2,3], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 }
       ]
     },
     options: {
@@ -474,12 +460,11 @@ function cumulative(arr){
 
 // Revenue Forecast: cumulativo today vs yesterday + linea obiettivo
 (function(){
-  var ctx = document.getElementById('revenueForecast');
+  var ctx = document.getElementById('chartRevForecast');
   if(!ctx || !dailyLabels.length) return;
   var cumToday = cumulative(dailyRevToday);
   var cumYest  = cumulative(dailyRevYest);
-  var target = cumYest.length ? cumYest[cumYest.length-1] : 0;
-  var targetLine = dailyLabelsFmt.map(()=>target);
+  var cumTarget = cumulative(dailyTargetRev);
   new Chart(ctx, {
     type: 'line',
     data: {
@@ -487,7 +472,7 @@ function cumulative(arr){
       datasets: [
         { label: 'Forecast (Today cum.)', data: cumToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
         { label: 'Yesterday cum.', data: cumYest, borderColor: '#4a90a4', borderDash: [6,3], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 },
-        { label: 'Target', data: targetLine, borderColor: COLOR.accent, borderDash: [2,3], fill: false, pointRadius: 0, borderWidth: 1 }
+        { label: 'Target cum.', data: cumTarget, borderColor: '#e63946', borderDash: [4,4], fill: false, pointRadius: 0, borderWidth: 1.5 }
       ]
     },
     options: {
@@ -502,7 +487,7 @@ function cumulative(arr){
 
 // RSN Pace
 (function(){
-  var ctx = document.getElementById('rsnPace');
+  var ctx = document.getElementById('chartRsnPace');
   if(!ctx || !dailyLabels.length) return;
   new Chart(ctx, {
     type: 'line',
@@ -510,7 +495,8 @@ function cumulative(arr){
       labels: dailyLabelsFmt,
       datasets: [
         { label: 'Today', data: dailyRnsToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
-        { label: 'Yesterday', data: dailyRnsYest, borderColor: COLOR.gray, borderDash: [4,4], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 }
+        { label: 'Yesterday', data: dailyRnsYest, borderColor: COLOR.gray, borderDash: [4,4], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Target', data: dailyTargetRns, borderColor: '#e63946', borderDash: [2,3], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 }
       ]
     },
     options: {
@@ -522,12 +508,11 @@ function cumulative(arr){
 
 // RSN Forecast
 (function(){
-  var ctx = document.getElementById('rsnForecast');
+  var ctx = document.getElementById('chartRsnForecast');
   if(!ctx || !dailyLabels.length) return;
   var cumToday = cumulative(dailyRnsToday);
   var cumYest  = cumulative(dailyRnsYest);
-  var target = cumYest.length ? cumYest[cumYest.length-1] : 0;
-  var targetLine = dailyLabelsFmt.map(()=>target);
+  var cumTarget = cumulative(dailyTargetRns);
   new Chart(ctx, {
     type: 'line',
     data: {
@@ -535,7 +520,7 @@ function cumulative(arr){
       datasets: [
         { label: 'Forecast (Today cum.)', data: cumToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
         { label: 'Yesterday cum.', data: cumYest, borderColor: '#4a90a4', borderDash: [6,3], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 },
-        { label: 'Target', data: targetLine, borderColor: COLOR.accent, borderDash: [2,3], fill: false, pointRadius: 0, borderWidth: 1 }
+        { label: 'Target cum.', data: cumTarget, borderColor: '#e63946', borderDash: [4,4], fill: false, pointRadius: 0, borderWidth: 1.5 }
       ]
     },
     options: {
