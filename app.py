@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import sqlite3
 from datetime import datetime
+import calendar
 from werkzeug.utils import secure_filename
 from functools import wraps
 from dotenv import load_dotenv
@@ -342,6 +343,9 @@ def pickup():
             daily_rev_yest=[],
             daily_occ_today=[],
             daily_revpar_today=[],
+            daily_target_occ=[],
+            daily_target_rev=[],
+            daily_target_rns=[],
         )
 
     ref_date = request.args.get("ref_date", available[0])
@@ -377,6 +381,31 @@ def pickup():
 
     daily = build_daily_chart_series(data_today, data_yest)
 
+    # Carica target mensili dalla tabella settings
+    with get_db() as conn:
+        settings_rows = conn.execute("SELECT month, target_occ, target_revenue FROM settings").fetchall()
+    targets_by_month = {r["month"]: {"occ": r["target_occ"] or 0, "rev": r["target_revenue"] or 0} for r in settings_rows}
+
+    # Per ciascuna data in daily_labels calcolo target giornaliero
+    today_map_for_targets = {d["stay_date"]: d for d in data_today}
+    yest_map_for_targets = {d["stay_date"]: d for d in data_yest}
+    all_dates_sorted = sorted(set(today_map_for_targets.keys()) | set(yest_map_for_targets.keys()))
+
+    daily_target_occ = []
+    daily_target_rev = []
+    daily_target_rns = []
+    for d in all_dates_sorted:
+        year_int = int(d[0:4])
+        month_int = int(d[5:7])
+        days_in_month = calendar.monthrange(year_int, month_int)[1]
+        tgt = targets_by_month.get(month_int, {"occ": 0, "rev": 0})
+        occ_target = tgt["occ"]
+        rev_target_daily = round((tgt["rev"] or 0) / days_in_month, 2) if days_in_month else 0
+        rns_target_daily = round((occ_target / 100.0) * CAPACITY, 2)
+        daily_target_occ.append(occ_target)
+        daily_target_rev.append(rev_target_daily)
+        daily_target_rns.append(rns_target_daily)
+
     return render_template(
         "pickup.html",
         available=available,
@@ -399,6 +428,9 @@ def pickup():
         daily_rev_yest=daily["yest_rev"],
         daily_occ_today=daily["today_occ"],
         daily_revpar_today=daily["today_revpar"],
+        daily_target_occ=daily_target_occ,
+        daily_target_rev=daily_target_rev,
+        daily_target_rns=daily_target_rns,
     )
 
 
