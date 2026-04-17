@@ -2,18 +2,155 @@
 {% set active = "pickup" %}
 {% block content %}
 
-<div class="d-flex align-items-center gap-3 mb-3">
-  <div class="card px-3 py-2">
-    <strong>Data di riferimento:</strong>
-    <select class="form-select form-select-sm d-inline w-auto ms-2"
-            onchange="location.href='/pickup?ref_date='+this.value">
+<style>
+  .priceup-filter-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .priceup-filter {
+    display: flex;
+    align-items: stretch;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    overflow: hidden;
+    min-width: 320px;
+  }
+  .priceup-filter-label {
+    background: #2a9d8f;
+    color: #fff;
+    padding: 0.55rem 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+  .priceup-filter-value {
+    padding: 0.55rem 0.9rem;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    font-weight: 500;
+    color: #333;
+    border: none;
+    background: #fff;
+    outline: none;
+    min-width: 140px;
+  }
+  .priceup-filter-actions {
+    display: flex;
+    border-left: 1px solid #eee;
+  }
+  .priceup-filter-actions button {
+    background: #fff;
+    border: none;
+    padding: 0 0.8rem;
+    color: #666;
+    cursor: pointer;
+    border-left: 1px solid #eee;
+  }
+  .priceup-filter-actions button:hover { background: #f0faf9; color: #2a9d8f; }
+
+  .dash-card {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    border-top: 3px solid #2a9d8f;
+    margin-bottom: 1.5rem;
+  }
+  .dash-card .dash-card-header {
+    padding: 0.9rem 1.2rem 0.5rem;
+    font-weight: 600;
+    color: #444;
+    font-size: 0.95rem;
+  }
+  .dash-card .dash-card-body {
+    padding: 0.5rem 1.2rem 1.2rem;
+  }
+
+  .gauge-card {
+    text-align: center;
+    padding: 1rem 0.5rem 1.2rem;
+  }
+  .gauge-title {
+    font-size: 0.9rem;
+    color: #555;
+    font-weight: 600;
+    text-align: left;
+    padding: 0 0 0.4rem 0.5rem;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 0.6rem;
+  }
+  .gauge-canvas-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+  .gauge-center {
+    position: absolute;
+    top: 60%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #333;
+  }
+  .gauge-scale {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: -0.2rem;
+  }
+
+  .variance-mini {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 1.5rem 0;
+  }
+  .variance-mini .v-box { text-align: center; }
+  .variance-mini .v-label { font-size: 0.8rem; color: #777; font-weight: 600; margin-bottom: 0.3rem; }
+  .variance-mini .v-arrow { font-size: 1.6rem; line-height: 1; }
+  .variance-mini .v-value { font-size: 1.5rem; font-weight: 700; margin-top: 0.2rem; }
+
+  .occ-red { color: #e63946; font-weight: 600; }
+  .occ-green { color: #2a9d8f; font-weight: 600; }
+  .var-up { color: #2a9d8f; font-weight: 600; }
+  .var-down { color: #e63946; font-weight: 600; }
+  .row-total { font-weight: 700; background: #f0faf9; }
+
+  .dash-card table { margin-bottom: 0; }
+  .dash-card table thead th {
+    background: #f7f9fa;
+    color: #555;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+</style>
+
+<div class="priceup-filter-bar">
+  <form method="get" action="/pickup" class="priceup-filter" id="refDateForm">
+    <span class="priceup-filter-label">Data di riferimento</span>
+    <select name="ref_date" class="priceup-filter-value" onchange="document.getElementById('refDateForm').submit()">
       {% for d in available %}
-      <option value="{{ d }}" {% if d == ref_date %}selected{% endif %}>
-        {{ d }}
-      </option>
+      <option value="{{ d }}" {% if d == ref_date %}selected{% endif %}>{{ d }}</option>
       {% endfor %}
     </select>
-  </div>
+    <div class="priceup-filter-actions">
+      <button type="button" onclick="navRef(-1)" title="Precedente">&lsaquo;</button>
+      <button type="button" onclick="navRef(1)" title="Successivo">&rsaquo;</button>
+    </div>
+  </form>
 </div>
 
 {% if not today %}
@@ -22,70 +159,142 @@
 </div>
 {% else %}
 
-<div class="row mb-4">
-  <div class="col-md-7">
-    <div class="card h-100">
-      <div class="card-header">Today PickUp vs Yesterday</div>
-      <div class="card-body">
-        <canvas id="pickupChart" height="160"></canvas>
+<!-- FASCIA 1: Bar chart + Variance -->
+<div class="row">
+  <div class="col-lg-8">
+    <div class="dash-card">
+      <div class="dash-card-header">Today PickUp vs Yesterday – Revenue totale</div>
+      <div class="dash-card-body">
+        <canvas id="pickupChart" height="110"></canvas>
       </div>
     </div>
   </div>
-
-  <div class="col-md-5">
-    <div class="card h-100">
-      <div class="card-header">Variance vs Yesterday</div>
-      <div class="card-body d-flex justify-content-around align-items-center">
-        <div class="variance-box">
-          <div class="text-muted small fw-bold">RNs</div>
-          <div class="variance-arrow {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">
-            {{ '▲' if variance_rns >= 0 else '▼' }}
-          </div>
-          <div class="fs-4 fw-bold {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">
-            {{ variance_rns }}
-          </div>
+  <div class="col-lg-4">
+    <div class="dash-card">
+      <div class="dash-card-header">Variance vs Yesterday</div>
+      <div class="dash-card-body variance-mini">
+        <div class="v-box">
+          <div class="v-label">RNs</div>
+          <div class="v-arrow {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">{{ '&#9650;' if variance_rns >= 0 else '&#9660;' }}</div>
+          <div class="v-value {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">{{ variance_rns }}</div>
         </div>
-
-        <div class="variance-box">
-          <div class="text-muted small fw-bold">Revenue</div>
-          <div class="variance-arrow {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">
-            {{ '▲' if variance_rev >= 0 else '▼' }}
-          </div>
-          <div class="fs-4 fw-bold {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">
-            € {{ "%.2f"|format(variance_rev)|replace('.', ',') }}
-          </div>
+        <div class="v-box">
+          <div class="v-label">Revenue</div>
+          <div class="v-arrow {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">{{ '&#9650;' if variance_rev >= 0 else '&#9660;' }}</div>
+          <div class="v-value {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">&euro; {{ "%.2f"|format(variance_rev)|replace('.', ',') }}</div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-{% if table_yest %}
-<div class="card mb-4">
-  <div class="card-header">
-    {{ prev_dt.strftime('%d/%m/%Y') if prev_dt else '—' }} – PickUp
+<!-- FASCIA 2: 4 KPI Gauges -->
+{% set tot = table_today[-1] if table_today and table_today[-1].get('is_total') else None %}
+{% if tot %}
+<div class="row">
+  <div class="col-md-3 col-sm-6">
+    <div class="dash-card gauge-card">
+      <div class="gauge-title">RNS Sold</div>
+      <div class="gauge-canvas-wrap">
+        <canvas id="gaugeRns" height="110"></canvas>
+        <div class="gauge-center">{{ tot.rns }}</div>
+      </div>
+      <div class="gauge-scale"><span>0</span><span>{{ (capacity * (daily_labels|length)) if daily_labels else capacity }}</span></div>
+    </div>
   </div>
-  <div class="card-body p-0">
+  <div class="col-md-3 col-sm-6">
+    <div class="dash-card gauge-card">
+      <div class="gauge-title">Occupancy</div>
+      <div class="gauge-canvas-wrap">
+        <canvas id="gaugeOcc" height="110"></canvas>
+        <div class="gauge-center">{{ "%.2f"|format(tot.occ/(daily_labels|length) if daily_labels else tot.occ)|replace('.', ',') }}%</div>
+      </div>
+      <div class="gauge-scale"><span>0,00%</span><span>100,00%</span></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="dash-card gauge-card">
+      <div class="gauge-title">ADR</div>
+      <div class="gauge-canvas-wrap">
+        <canvas id="gaugeAdr" height="110"></canvas>
+        <div class="gauge-center">&euro; {{ "%.2f"|format(tot.adr)|replace('.', ',') }}</div>
+      </div>
+      <div class="gauge-scale"><span>&euro; 0,00</span><span>&euro; {{ "%.2f"|format(tot.adr * 1.5 if tot.adr else 100)|replace('.', ',') }}</span></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="dash-card gauge-card">
+      <div class="gauge-title">REVPAR</div>
+      <div class="gauge-canvas-wrap">
+        <canvas id="gaugeRevpar" height="110"></canvas>
+        <div class="gauge-center">&euro; {{ "%.2f"|format(tot.revpar/(daily_labels|length) if daily_labels else tot.revpar)|replace('.', ',') }}</div>
+      </div>
+      <div class="gauge-scale"><span>&euro; 0,00</span><span>&euro; {{ "%.2f"|format((tot.revpar/(daily_labels|length) if daily_labels else tot.revpar) * 1.5 if tot.revpar else 100)|replace('.', ',') }}</span></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- FASCIA 3: Revenue Pace + Revenue Forecast -->
+<div class="row">
+  <div class="col-lg-6">
+    <div class="dash-card">
+      <div class="dash-card-header">Revenue Pace</div>
+      <div class="dash-card-body">
+        <canvas id="revenuePace" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="dash-card">
+      <div class="dash-card-header">Revenue Forecast</div>
+      <div class="dash-card-body">
+        <canvas id="revenueForecast" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FASCIA 4: RSN Pace + RSN Forecast -->
+<div class="row">
+  <div class="col-lg-6">
+    <div class="dash-card">
+      <div class="dash-card-header">RSN Pace</div>
+      <div class="dash-card-body">
+        <canvas id="rsnPace" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="dash-card">
+      <div class="dash-card-header">RSN Forecast</div>
+      <div class="dash-card-body">
+        <canvas id="rsnForecast" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TABELLE -->
+{% if table_yest %}
+<div class="dash-card">
+  <div class="dash-card-header">{{ prev_dt.strftime('%d/%m/%Y') if prev_dt else '—' }} &ndash; PickUp</div>
+  <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead>
         <tr>
-          <th>Data</th>
-          <th>RNS</th>
-          <th>ADR</th>
-          <th>Revenue</th>
-          <th>OCC %</th>
-          <th>REVPAR</th>
+          <th class="ps-3">Data</th><th>RNS</th><th>ADR</th><th>Revenue</th><th>OCC %</th><th>REVPAR</th>
         </tr>
       </thead>
       <tbody>
         {% for r in table_yest %}
         <tr class="{{ 'row-total' if r.get('is_total') }}">
-          <td>{{ r.date if r.get('is_total') else r.date[8:10] + '/' + r.date[5:7] + '/' + r.date[:4] }}</td>
+          <td class="ps-3">{{ r.date if r.get('is_total') else r.date[8:10] + '/' + r.date[5:7] + '/' + r.date[:4] }}</td>
           <td>{{ r.rns }}</td>
-          <td>€ {{ "%.2f"|format(r.adr)|replace('.', ',') }}</td>
-          <td>€ {{ "%.2f"|format(r.revenue)|replace('.', ',') }}</td>
+          <td>&euro; {{ "%.2f"|format(r.adr)|replace('.', ',') }}</td>
+          <td>&euro; {{ "%.2f"|format(r.revenue)|replace('.', ',') }}</td>
           <td class="{{ 'occ-red' if r.occ < 50 else 'occ-green' }}">{{ "%.2f"|format(r.occ)|replace('.', ',') }}%</td>
-          <td>€ {{ "%.2f"|format(r.revpar)|replace('.', ',') }}</td>
+          <td>&euro; {{ "%.2f"|format(r.revpar)|replace('.', ',') }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -94,45 +303,30 @@
 </div>
 {% endif %}
 
-<div class="card mb-4">
-  <div class="card-header">
-    {{ ref_dt.strftime('%d/%m/%Y') if ref_dt else '—' }} – PickUp
-  </div>
-  <div class="card-body p-0">
+<div class="dash-card">
+  <div class="dash-card-header">{{ ref_dt.strftime('%d/%m/%Y') if ref_dt else '—' }} &ndash; PickUp</div>
+  <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead>
         <tr>
-          <th>Data</th>
-          <th>RNS</th>
-          <th class="text-muted small">RNS<br>Var vs Yest</th>
-          <th>ADR</th>
-          <th>Revenue</th>
-          <th class="text-muted small">Revenue<br>Var vs Yest</th>
-          <th>OCC %</th>
-          <th>REVPAR</th>
+          <th class="ps-3">Data</th><th>RNS</th><th>RNS Var</th><th>ADR</th><th>Revenue</th><th>Revenue Var</th><th>OCC %</th><th>REVPAR</th>
         </tr>
       </thead>
       <tbody>
         {% for r in table_today %}
         <tr class="{{ 'row-total' if r.get('is_total') }}">
-          <td>{{ r.date if r.get('is_total') else r.date[8:10] + '/' + r.date[5:7] + '/' + r.date[:4] }}</td>
+          <td class="ps-3">{{ r.date if r.get('is_total') else r.date[8:10] + '/' + r.date[5:7] + '/' + r.date[:4] }}</td>
           <td>{{ r.rns }}</td>
           <td class="{{ 'var-up' if r.var_rns > 0 else ('var-down' if r.var_rns < 0 else '') }}">
-            {% if r.var_rns == 0 %}—{% elif r.var_rns > 0 %}+{{ r.var_rns }}{% else %}{{ r.var_rns }}{% endif %}
+            {% if r.var_rns == 0 %}&mdash;{% elif r.var_rns > 0 %}+{{ r.var_rns }}{% else %}{{ r.var_rns }}{% endif %}
           </td>
-          <td>€ {{ "%.2f"|format(r.adr)|replace('.', ',') }}</td>
-          <td>€ {{ "%.2f"|format(r.revenue)|replace('.', ',') }}</td>
+          <td>&euro; {{ "%.2f"|format(r.adr)|replace('.', ',') }}</td>
+          <td>&euro; {{ "%.2f"|format(r.revenue)|replace('.', ',') }}</td>
           <td class="{{ 'var-up' if r.var_rev > 0 else ('var-down' if r.var_rev < 0 else '') }}">
-            {% if r.var_rev == 0 %}
-              —
-            {% elif r.var_rev > 0 %}
-              +€ {{ "%.2f"|format(r.var_rev)|replace('.', ',') }}
-            {% else %}
-              € {{ "%.2f"|format(r.var_rev)|replace('.', ',') }}
-            {% endif %}
+            {% if r.var_rev == 0 %}&mdash;{% elif r.var_rev > 0 %}+&euro; {{ "%.2f"|format(r.var_rev)|replace('.', ',') }}{% else %}&euro; {{ "%.2f"|format(r.var_rev)|replace('.', ',') }}{% endif %}
           </td>
           <td class="{{ 'occ-red' if r.occ < 50 else 'occ-green' }}">{{ "%.2f"|format(r.occ)|replace('.', ',') }}%</td>
-          <td>€ {{ "%.2f"|format(r.revpar)|replace('.', ',') }}</td>
+          <td>&euro; {{ "%.2f"|format(r.revpar)|replace('.', ',') }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -143,35 +337,214 @@
 {% endif %}
 
 <script>
-const ctx = document.getElementById('pickupChart');
-if (ctx) {
+const COLOR = { main: '#2a9d8f', mainLight: '#8ecdc8', mainBg: 'rgba(42,157,143,0.15)', accent: '#e63946', gray: '#d1d5db', warn: '#f4a261' };
+const available = {{ available|tojson }};
+const curRef = {{ ref_date|tojson if ref_date else 'null' }};
+
+function navRef(delta){
+  if(!curRef || !available.length) return;
+  var idx = available.indexOf(curRef);
+  if(idx < 0) return;
+  var newIdx = idx - delta; // available è ordered DESC: -1 = giorno precedente (idx+1), +1 = successivo (idx-1)
+  if(newIdx < 0 || newIdx >= available.length) return;
+  window.location.href = '/pickup?ref_date=' + available[newIdx];
+}
+
+function euroFmt(v){ return '€ ' + Number(v).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+// Bar chart principale: Today PickUp vs Yesterday (Revenue totale)
+(function(){
+  var ctx = document.getElementById('pickupChart');
+  if(!ctx) return;
   new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: {{ (chart_labels or []) | tojson }},
+      labels: {{ (chart_labels or [])|tojson }},
       datasets: [{
-        data: {{ (chart_today or []) | tojson }},
-        backgroundColor: ['#8ecdc8', '#2a9d8f'],
-        borderRadius: 4
+        data: {{ (chart_today or [])|tojson }},
+        backgroundColor: [COLOR.mainLight, COLOR.main],
+        borderRadius: 6,
+        barThickness: 80
       }]
     },
     options: {
-      plugins: {
-        legend: { display: false }
-      },
+      plugins: { legend: { display: false } },
       scales: {
         y: {
-          beginAtZero: false,
-          ticks: {
-            callback: function(value) {
-              return '€ ' + Number(value).toLocaleString('it-IT', { minimumFractionDigits: 2 });
-            }
-          }
-        }
+          beginAtZero: true,
+          ticks: { callback: v => euroFmt(v) },
+          grid: { color: '#f0f0f0' }
+        },
+        x: { grid: { display: false } }
       }
     }
   });
+})();
+
+// Gauge plugin per mostrare semicerchio
+function makeGauge(canvasId, value, max, color, fmt){
+  var ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  var pct = max > 0 ? Math.min(100, Math.max(0, (value/max)*100)) : 0;
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [pct, 100 - pct],
+        backgroundColor: [color, '#e8eaed'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      rotation: -90,
+      circumference: 180,
+      cutout: '72%',
+      plugins: { tooltip: { enabled: false }, legend: { display: false } },
+      animation: { duration: 700 }
+    }
+  });
 }
+
+{% if tot %}
+var capacity = {{ capacity }};
+var nDays = {{ daily_labels|length if daily_labels else 1 }};
+makeGauge('gaugeRns',   {{ tot.rns }}, capacity * nDays, COLOR.main);
+var occAvg = {{ "%.4f"|format(tot.occ/(daily_labels|length) if daily_labels else tot.occ) }};
+makeGauge('gaugeOcc',   occAvg, 100, occAvg < 50 ? COLOR.accent : COLOR.main);
+var adrVal = {{ tot.adr or 0 }};
+makeGauge('gaugeAdr',   adrVal, (adrVal * 1.5) || 100, COLOR.main);
+var revparAvg = {{ "%.4f"|format(tot.revpar/(daily_labels|length) if daily_labels else tot.revpar) }};
+makeGauge('gaugeRevpar', revparAvg, (revparAvg * 1.5) || 100, COLOR.main);
+{% endif %}
+
+// Pace/Forecast charts
+var dailyLabels = {{ (daily_labels or [])|tojson }};
+var dailyLabelsFmt = dailyLabels.map(function(d){ return d.slice(8,10)+'/'+d.slice(5,7); });
+var dailyRevToday = {{ (daily_rev_today or [])|tojson }};
+var dailyRevYest  = {{ (daily_rev_yest  or [])|tojson }};
+var dailyRnsToday = {{ (daily_rns_today or [])|tojson }};
+var dailyRnsYest  = {{ (daily_rns_yest  or [])|tojson }};
+
+function cumulative(arr){
+  var out=[], s=0;
+  for(var i=0;i<arr.length;i++){ s+=arr[i]; out.push(Math.round(s*100)/100); }
+  return out;
+}
+
+// Revenue Pace: area chart today vs yesterday (valori giornalieri)
+(function(){
+  var ctx = document.getElementById('revenuePace');
+  if(!ctx || !dailyLabels.length) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dailyLabelsFmt,
+      datasets: [
+        {
+          label: 'Today',
+          data: dailyRevToday,
+          borderColor: COLOR.main,
+          backgroundColor: COLOR.mainBg,
+          fill: true,
+          tension: 0.25,
+          pointRadius: 0,
+          borderWidth: 2
+        },
+        {
+          label: 'Yesterday',
+          data: dailyRevYest,
+          borderColor: COLOR.gray,
+          borderDash: [4,4],
+          fill: false,
+          tension: 0.25,
+          pointRadius: 0,
+          borderWidth: 1.5
+        }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => euroFmt(v) }, grid: { color: '#f0f0f0' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+})();
+
+// Revenue Forecast: cumulativo today vs yesterday + linea obiettivo
+(function(){
+  var ctx = document.getElementById('revenueForecast');
+  if(!ctx || !dailyLabels.length) return;
+  var cumToday = cumulative(dailyRevToday);
+  var cumYest  = cumulative(dailyRevYest);
+  var target = cumYest.length ? cumYest[cumYest.length-1] : 0;
+  var targetLine = dailyLabelsFmt.map(()=>target);
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dailyLabelsFmt,
+      datasets: [
+        { label: 'Forecast (Today cum.)', data: cumToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
+        { label: 'Yesterday cum.', data: cumYest, borderColor: '#4a90a4', borderDash: [6,3], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Target', data: targetLine, borderColor: COLOR.accent, borderDash: [2,3], fill: false, pointRadius: 0, borderWidth: 1 }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => euroFmt(v) }, grid: { color: '#f0f0f0' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+})();
+
+// RSN Pace
+(function(){
+  var ctx = document.getElementById('rsnPace');
+  if(!ctx || !dailyLabels.length) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dailyLabelsFmt,
+      datasets: [
+        { label: 'Today', data: dailyRnsToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
+        { label: 'Yesterday', data: dailyRnsYest, borderColor: COLOR.gray, borderDash: [4,4], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false } } }
+    }
+  });
+})();
+
+// RSN Forecast
+(function(){
+  var ctx = document.getElementById('rsnForecast');
+  if(!ctx || !dailyLabels.length) return;
+  var cumToday = cumulative(dailyRnsToday);
+  var cumYest  = cumulative(dailyRnsYest);
+  var target = cumYest.length ? cumYest[cumYest.length-1] : 0;
+  var targetLine = dailyLabelsFmt.map(()=>target);
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dailyLabelsFmt,
+      datasets: [
+        { label: 'Forecast (Today cum.)', data: cumToday, borderColor: COLOR.main, backgroundColor: COLOR.mainBg, fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 },
+        { label: 'Yesterday cum.', data: cumYest, borderColor: '#4a90a4', borderDash: [6,3], fill: false, tension: 0.25, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Target', data: targetLine, borderColor: COLOR.accent, borderDash: [2,3], fill: false, pointRadius: 0, borderWidth: 1 }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+      scales: { y: { beginAtZero: true, grid: { color: '#f0f0f0' } }, x: { grid: { display: false } } }
+    }
+  });
+})();
 </script>
 
 {% endblock %}
+
