@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% set active = "settings" %}
+{% block content %}
+
+<style>
+  .settings-card {
+    background: #fff;
+    border-radius: 8px;
+    border-top: 4px solid #2a9d8f;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .settings-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+  }
+  .settings-sub {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+  .settings-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .settings-table th {
+    background: #f5f7f8;
+    color: #333;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 2px solid #2a9d8f;
+    text-align: left;
+  }
+  .settings-table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+  }
+  .settings-table tr:hover {
+    background: #fafafa;
+  }
+  .settings-input {
+    width: 100%;
+    max-width: 160px;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    text-align: right;
+  }
+  .settings-input:focus {
+    outline: none;
+    border-color: #2a9d8f;
+    box-shadow: 0 0 0 2px rgba(42,157,143,0.15);
+  }
+  .input-suffix {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #777;
+    font-size: 0.9rem;
+  }
+  .btn-save {
+    background: #2a9d8f;
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: background 0.15s;
+  }
+  .btn-save:hover { background: #248277; }
+  .month-name { font-weight: 500; color: #333; width: 160px; }
+</style>
+
+<div class="settings-card">
+  <div class="settings-title">Target mensili</div>
+  <div class="settings-sub">
+    Imposta per ogni mese dell'anno il target di occupazione (%) e il target di revenue (€).
+    I valori saranno usati nei grafici di forecast e nelle tabelle della dashboard.
+  </div>
+
+  <form method="post" action="{{ url_for('impostazioni') }}">
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Mese</th>
+          <th>Target occupazione</th>
+          <th>Target revenue</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in targets %}
+        <tr>
+          <td class="month-name">{{ t.name }}</td>
+          <td>
+            <span class="input-suffix">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                name="occ_{{ t.month }}"
+                value="{{ '%.2f'|format(t.target_occ) }}"
+                class="settings-input"
+              />
+              %
+            </span>
+          </td>
+          <td>
+            <span class="input-suffix">
+              €
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                name="rev_{{ t.month }}"
+                value="{{ '%.2f'|format(t.target_revenue) }}"
+                class="settings-input"
+              />
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="mt-4 d-flex justify-content-end">
+      <button type="submit" class="btn-save">Salva impostazioni</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
