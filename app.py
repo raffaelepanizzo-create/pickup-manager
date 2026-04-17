@@ -52,6 +52,15 @@ def init_db():
                 revenue REAL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                month INTEGER PRIMARY KEY,
+                target_occ REAL DEFAULT 0,
+                target_revenue REAL DEFAULT 0
+            )
+        """)
+        for m in range(1, 13):
+            conn.execute("INSERT OR IGNORE INTO settings (month, target_occ, target_revenue) VALUES (?, 0, 0)", (m,))
         conn.commit()
 
 
@@ -471,6 +480,46 @@ def caricamento():
         uploads=[dict(u) for u in uploads],
         today=today
     )
+
+
+@app.route("/impostazioni", methods=["GET", "POST"])
+@login_required
+def impostazioni():
+    with get_db() as conn:
+        if request.method == "POST":
+            for m in range(1, 13):
+                occ = request.form.get(f"occ_{m}", "0").replace(",", ".").strip() or "0"
+                rev = request.form.get(f"rev_{m}", "0").replace(",", ".").strip() or "0"
+                try:
+                    occ_val = float(occ)
+                    rev_val = float(rev)
+                except ValueError:
+                    occ_val = 0.0
+                    rev_val = 0.0
+                conn.execute(
+                    "UPDATE settings SET target_occ = ?, target_revenue = ? WHERE month = ?",
+                    (occ_val, rev_val, m),
+                )
+            conn.commit()
+            flash("Impostazioni salvate.", "success")
+            return redirect(url_for("impostazioni"))
+
+        rows = conn.execute("SELECT month, target_occ, target_revenue FROM settings ORDER BY month").fetchall()
+
+    month_names = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+    ]
+    targets = []
+    for r in rows:
+        targets.append({
+            "month": r["month"],
+            "name": month_names[r["month"] - 1],
+            "target_occ": r["target_occ"] or 0,
+            "target_revenue": r["target_revenue"] or 0,
+        })
+
+    return render_template("settings.html", targets=targets)
 
 
 if __name__ == "__main__":
