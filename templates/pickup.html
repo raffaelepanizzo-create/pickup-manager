@@ -175,12 +175,12 @@
       <div class="dash-card-body variance-mini">
         <div class="v-box">
           <div class="v-label">RNs</div>
-          <div class="v-arrow {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">{{ '&#9650;' if variance_rns >= 0 else '&#9660;' }}</div>
+          <div class="v-arrow {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">{{ '▲' if variance_rns >= 0 else '▼' }}</div>
           <div class="v-value {{ 'var-up' if variance_rns >= 0 else 'var-down' }}">{{ variance_rns }}</div>
         </div>
         <div class="v-box">
           <div class="v-label">Revenue</div>
-          <div class="v-arrow {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">{{ '&#9650;' if variance_rev >= 0 else '&#9660;' }}</div>
+          <div class="v-arrow {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">{{ '▲' if variance_rev >= 0 else '▼' }}</div>
           <div class="v-value {{ 'var-up' if variance_rev >= 0 else 'var-down' }}">&euro; {{ "%.2f"|format(variance_rev)|replace('.', ',') }}</div>
         </div>
       </div>
@@ -547,4 +547,5 @@ function cumulative(arr){
 </script>
 
 {% endblock %}
+
 
