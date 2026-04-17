@@ -66,6 +66,21 @@
             background: #1d4ed8;
         }
 
+        .btn-back {
+            display: inline-block;
+            background: #6b7280;
+            color: #ffffff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-back:hover {
+            background: #4b5563;
+        }
+
         .flash {
             padding: 14px 16px;
             border-radius: 8px;
@@ -101,6 +116,10 @@
 
 <body>
 <div class="container">
+
+    <div style="margin-bottom: 16px;">
+        <a href="{{ url_for('pickup') }}" class="btn-back">← Torna alla Dashboard</a>
+    </div>
 
     <h1>Caricamento file pickup PMS</h1>
 
@@ -139,28 +158,28 @@
         <h2>Storico caricamenti</h2>
 
         {% if uploads %}
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Data upload</th>
-                    <th>Data riferimento</th>
-                    <th>Righe</th>
-                    <th>File</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in uploads %}
-                <tr>
-                    <td>{{ u.id }}</td>
-                    <td>{{ u.upload_datetime }}</td>
-                    <td>{{ u.ref_date }}</td>
-                    <td>{{ u.num_inserted }}</td>
-                    <td>{{ u.filename }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data upload</th>
+                        <th>Data riferimento</th>
+                        <th>Righe</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in uploads %}
+                        <tr>
+                            <td>{{ u.id }}</td>
+                            <td>{{ u.upload_datetime }}</td>
+                            <td>{{ u.ref_date }}</td>
+                            <td>{{ u.num_inserted }}</td>
+                            <td>{{ u.filename }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
             <p>Nessun caricamento presente.</p>
         {% endif %}
