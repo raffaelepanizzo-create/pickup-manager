@@ -436,7 +436,7 @@ function cumulative(arr){
 
 // Revenue Pace: area chart today vs yesterday (valori giornalieri)
 (function(){
-  var ctx = document.getElementById('chartRevPace');
+  var ctx = document.getElementById('revenuePace');
   if(!ctx || !dailyLabels.length) return;
   new Chart(ctx, {
     type: 'line',
@@ -460,7 +460,7 @@ function cumulative(arr){
 
 // Revenue Forecast: cumulativo today vs yesterday + linea obiettivo
 (function(){
-  var ctx = document.getElementById('chartRevForecast');
+  var ctx = document.getElementById('revenueForecast');
   if(!ctx || !dailyLabels.length) return;
   var cumToday = cumulative(dailyRevToday);
   var cumYest  = cumulative(dailyRevYest);
@@ -487,7 +487,7 @@ function cumulative(arr){
 
 // RSN Pace
 (function(){
-  var ctx = document.getElementById('chartRsnPace');
+  var ctx = document.getElementById('rsnPace');
   if(!ctx || !dailyLabels.length) return;
   new Chart(ctx, {
     type: 'line',
@@ -508,7 +508,7 @@ function cumulative(arr){
 
 // RSN Forecast
 (function(){
-  var ctx = document.getElementById('chartRsnForecast');
+  var ctx = document.getElementById('rsnForecast');
   if(!ctx || !dailyLabels.length) return;
   var cumToday = cumulative(dailyRnsToday);
   var cumYest  = cumulative(dailyRnsYest);
