@@ -1,0 +1,14 @@
+# Dipendenze per BUILD LOCALE (PyInstaller)
+# Installa con:  pip install -r requirements-build.txt
+#
+# Include tutto cio' che serve a runtime (Flask, pandas, openpyxl, ecc.)
+# piu' waitress (server WSGI di produzione) e pyinstaller per il build.
+
+Flask>=2.3
+pandas>=2.0
+openpyxl>=3.1
+python-dotenv>=1.0
+Werkzeug>=2.3
+waitress>=3.0
+pyinstaller>=6.0
+
