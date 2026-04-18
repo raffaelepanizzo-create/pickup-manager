@@ -13,8 +13,8 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "pickup_secret_key_dev")
 
-UPLOAD_FOLDER = "uploads"
-DB_PATH = "pickup.db"
+UPLOAD_FOLDER = os.environ.get("PICKUP_UPLOAD_FOLDER", "uploads")
+DB_PATH = os.environ.get("PICKUP_DB_PATH", "pickup.db")
 CAPACITY = 55
 ALLOWED_EXTENSIONS = {"xlsx", "xls"}
 
