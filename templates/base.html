@@ -25,6 +25,56 @@
   .table th { font-size:.82rem; color:#6c757d; text-transform:uppercase; }
   .row-total { font-weight:700; background:#f0faf9; }
   .flash-msg { position:fixed; top:1rem; right:1rem; z-index:9999; min-width:280px; }
+
+  .priceup-filter-bar { margin-bottom: 1.25rem; }
+  .priceup-filter {
+    display:flex; align-items:stretch; background:#fff;
+    border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,.06);
+    overflow:visible; margin-bottom:.6rem; position:relative;
+  }
+  .priceup-filter-label {
+    background:#2a9d8f; color:#fff; padding:.55rem 1rem;
+    font-weight:600; border-radius:6px 0 0 6px; min-width:180px;
+  }
+  .priceup-filter-value {
+    flex:1; border:none; padding:.55rem 1rem; background:#fff;
+    font-size:.95rem; color:#333;
+  }
+  .priceup-filter-value[readonly] { background:#fff; cursor:default; }
+  .priceup-filter-actions { display:flex; align-items:center; padding:0 .4rem; }
+  .priceup-filter-actions button {
+    background:#fff; border:1px solid #e1e4e8; color:#555;
+    width:34px; height:34px; margin-left:4px; border-radius:4px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .priceup-filter-actions button:hover { background:#f1f3f5; }
+
+  .month-popup {
+    position:absolute; top:100%; left:180px; margin-top:4px;
+    background:#fff; border:1px solid #e1e4e8; border-radius:6px;
+    box-shadow:0 4px 16px rgba(0,0,0,.12); padding:.75rem;
+    width:320px; z-index:100; display:none;
+  }
+  .month-popup.open { display:block; }
+  .month-popup-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.25rem .5rem .5rem .5rem; font-weight:600;
+  }
+  .month-popup-header button {
+    background:transparent; border:none; font-size:1.1rem; cursor:pointer; color:#555;
+  }
+  .month-popup-grid {
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:.3rem;
+  }
+  .month-popup-grid button {
+    background:#fff; border:1px solid transparent; padding:.6rem 0;
+    border-radius:4px; cursor:pointer; color:#333; font-size:.9rem;
+  }
+  .month-popup-grid button:hover { background:#f1f3f5; }
+  .month-popup-grid button.selected {
+    background:#2a9d8f; color:#fff; font-weight:600;
+  }
+  .month-popup-grid button:disabled { color:#ccc; cursor:not-allowed; background:#fafafa; }
 </style>
 </head>
 <body>
@@ -53,8 +103,138 @@
 {% endwith %}
 
 <div class="main-content">
+
+{% if show_filters and available %}
+<div class="priceup-filter-bar">
+  <form method="get" action="{{ request.path }}" class="priceup-filter" id="refDateForm">
+    <span class="priceup-filter-label">Data di riferimento</span>
+    <select name="ref_date" class="priceup-filter-value"
+            onchange="document.getElementById('refDateForm').submit()">
+      {% for d in available %}
+      <option value="{{ d }}" {% if d == ref_date %}selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="month" value="{{ month }}">
+    <div class="priceup-filter-actions">
+      <button type="button" title="Precedente" onclick="navRef(-1)">&lsaquo;</button>
+      <button type="button" title="Successivo" onclick="navRef(1)">&rsaquo;</button>
+    </div>
+  </form>
+
+  <form method="get" action="{{ request.path }}" class="priceup-filter" id="monthForm">
+    <span class="priceup-filter-label">Mese</span>
+    <input type="text" class="priceup-filter-value" readonly
+           value="{{ month_label }}" onclick="toggleMonthPopup()">
+    <input type="hidden" name="month" id="monthInput" value="{{ month }}">
+    <input type="hidden" name="ref_date" value="{{ ref_date }}">
+    <div class="priceup-filter-actions">
+      <button type="button" title="Mese precedente" onclick="navMonth(-1)">&lsaquo;</button>
+      <button type="button" title="Mese successivo" onclick="navMonth(1)">&rsaquo;</button>
+      <button type="button" title="Scegli mese" onclick="toggleMonthPopup()">📅</button>
+    </div>
+
+    <div class="month-popup" id="monthPopup">
+      <div class="month-popup-header">
+        <button type="button" onclick="changePopupYear(-1)">&laquo;</button>
+        <span id="popupYearLabel"></span>
+        <button type="button" onclick="changePopupYear(1)">&raquo;</button>
+      </div>
+      <div class="month-popup-grid" id="popupMonthsGrid"></div>
+    </div>
+  </form>
+</div>
+{% endif %}
+
 {% block content %}{% endblock %}
 </div>
+
+<script>
+  {% if show_filters and available %}
+  window._available        = {{ available|tojson }};
+  window._availableMonths  = {{ available_months|tojson }};
+  window._currentRefDate   = {{ ref_date|tojson }};
+  window._currentMonth     = {{ month|tojson }};
+  window._prevMonth        = {{ prev_month|tojson }};
+  window._nextMonth        = {{ next_month|tojson }};
+  {% endif %}
+
+  const MONTH_ABBR_IT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+
+  function navRef(delta){
+    if(!window._available || !window._currentRefDate) return;
+    const idx = window._available.indexOf(window._currentRefDate);
+    if(idx < 0) return;
+    const newIdx = idx + delta;
+    if(newIdx < 0 || newIdx >= window._available.length) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set('ref_date', window._available[newIdx]);
+    params.set('month', window._currentMonth);
+    window.location.search = params.toString();
+  }
+
+  function navMonth(delta){
+    if(!window._currentMonth) return;
+    const target = delta < 0 ? window._prevMonth : window._nextMonth;
+    if(!target) return;
+    selectMonth(target);
+  }
+
+  function selectMonth(ym){
+    const params = new URLSearchParams(window.location.search);
+    params.set('month', ym);
+    if(window._currentRefDate) params.set('ref_date', window._currentRefDate);
+    window.location.search = params.toString();
+  }
+
+  let _popupYear = null;
+  function toggleMonthPopup(){
+    const popup = document.getElementById('monthPopup');
+    if(!popup) return;
+    if(popup.classList.contains('open')){
+      popup.classList.remove('open');
+      return;
+    }
+    if(!window._currentMonth) return;
+    _popupYear = parseInt(window._currentMonth.substring(0,4), 10);
+    renderMonthPopup();
+    popup.classList.add('open');
+  }
+
+  function changePopupYear(delta){
+    if(_popupYear == null) return;
+    _popupYear += delta;
+    renderMonthPopup();
+  }
+
+  function renderMonthPopup(){
+    const lbl = document.getElementById('popupYearLabel');
+    const grid = document.getElementById('popupMonthsGrid');
+    if(!lbl || !grid) return;
+    lbl.textContent = _popupYear;
+    grid.innerHTML = '';
+    const selYear  = parseInt(window._currentMonth.substring(0,4), 10);
+    const selMonth = parseInt(window._currentMonth.substring(5,7), 10);
+    const availSet = new Set(window._availableMonths || []);
+    for(let m = 1; m <= 12; m++){
+      const ym = _popupYear + '-' + String(m).padStart(2,'0');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = MONTH_ABBR_IT[m-1];
+      if(_popupYear === selYear && m === selMonth) btn.classList.add('selected');
+      if(availSet.size && !availSet.has(ym)) btn.disabled = true;
+      btn.addEventListener('click', () => selectMonth(ym));
+      grid.appendChild(btn);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const popup = document.getElementById('monthPopup');
+    const form  = document.getElementById('monthForm');
+    if(popup && form && popup.classList.contains('open') && !form.contains(e.target)){
+      popup.classList.remove('open');
+    }
+  });
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

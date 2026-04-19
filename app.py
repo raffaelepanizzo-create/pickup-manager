@@ -283,6 +283,105 @@ def parse_excel_formato_specifico(filepath):
     return df
 
 
+# ─── FILTER CONTEXT (Data di riferimento + Mese) ─────────────────────────
+
+MONTH_NAMES_IT = [
+    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+]
+MONTH_ABBR_IT = [
+    "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+    "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
+]
+
+
+def get_available_months():
+    """Return the sorted list (asc) of YYYY-MM that are present in pickup_data.stay_date."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT substr(stay_date, 1, 7) AS ym FROM pickup_data ORDER BY ym"
+        ).fetchall()
+    return [r["ym"] for r in rows]
+
+
+def _default_month_for_ref(ref_date):
+    """Return YYYY-MM derived from ref_date (YYYY-MM-DD) or None."""
+    if not ref_date or len(ref_date) < 7:
+        return None
+    return ref_date[:7]
+
+
+def _neighbor_month(months, current, delta):
+    """Return the neighbour (prev/next) month in `months` list, or None if not available."""
+    if not months or current not in months:
+        return None
+    idx = months.index(current) + delta
+    if idx < 0 or idx >= len(months):
+        return None
+    return months[idx]
+
+
+def resolve_filters(ref_date_arg=None, month_arg=None):
+    """
+    Resolve ref_date and month from query args (or provided values),
+    returning a dict with all the data needed by base.html filter bar.
+    """
+    available = get_available_ref_dates()
+    available_months = get_available_months()
+
+    # Normalize ref_date
+    ref_date = ref_date_arg if ref_date_arg is not None else request.args.get("ref_date")
+    if ref_date not in available:
+        ref_date = available[0] if available else None
+
+    # Normalize month
+    month = month_arg if month_arg is not None else request.args.get("month")
+    if not month or len(month) != 7 or month[4] != "-":
+        month = _default_month_for_ref(ref_date)
+    # If month is not in the available list, keep user-chosen value (popup still works)
+
+    if month:
+        try:
+            month_num = int(month[5:7])
+            month_name = MONTH_NAMES_IT[month_num - 1]
+            month_abbr = MONTH_ABBR_IT[month_num - 1]
+            month_label = f"{month_abbr}/{month[:4]}"
+        except (ValueError, IndexError):
+            month_name = ""
+            month_abbr = ""
+            month_label = ""
+    else:
+        month_name = ""
+        month_abbr = ""
+        month_label = ""
+
+    prev_month = _neighbor_month(available_months, month, -1) if month else None
+    next_month = _neighbor_month(available_months, month, 1) if month else None
+
+    return {
+        "available": available,
+        "available_months": available_months,
+        "ref_date": ref_date,
+        "month": month,
+        "month_name": month_name,
+        "month_abbr": month_abbr,
+        "month_label": month_label,
+        "prev_month": prev_month,
+        "next_month": next_month,
+    }
+
+
+@app.context_processor
+def inject_filters():
+    """Expose filter context to all templates when user is logged in."""
+    if not session.get("logged_in"):
+        return {}
+    try:
+        return resolve_filters()
+    except Exception:
+        return {}
+
+
 # ─── ROUTES ─────────────────────────────────────────────────────────────────
 
 @app.route("/login", methods=["GET", "POST"])
@@ -323,8 +422,6 @@ def pickup():
     if not available:
         return render_template(
             "pickup.html",
-            available=[],
-            ref_date=None,
             today=None,
             yesterday=None,
             table_yest=[],
@@ -348,24 +445,34 @@ def pickup():
             daily_target_rns=[],
         )
 
+    # Resolve ref_date (use first available if missing/invalid)
     ref_date = request.args.get("ref_date", available[0])
-
     if ref_date not in available:
         ref_date = available[0]
 
     idx = available.index(ref_date)
     prev_date = available[idx + 1] if idx + 1 < len(available) else None
 
+    # Resolve month (default: month of ref_date)
+    month = request.args.get("month")
+    if not month or len(month) != 7 or month[4] != "-":
+        month = ref_date[:7]
+
     data_today = get_data_for_date(ref_date)
     data_yest = get_data_for_date(prev_date) if prev_date else []
 
-    table_yest = build_table(data_yest) if data_yest else []
-    table_today = build_pickup_table(data_today, data_yest)
+    # Filter data for selected month (by stay_date prefix YYYY-MM)
+    data_today_m = [d for d in data_today if (d["stay_date"] or "").startswith(month)]
+    data_yest_m = [d for d in data_yest if (d["stay_date"] or "").startswith(month)]
 
-    tot_today_rns = sum(d["rns"] or 0 for d in data_today)
-    tot_yest_rns = sum(d["rns"] or 0 for d in data_yest)
-    tot_today_rev = sum(d["revenue"] or 0 for d in data_today)
-    tot_yest_rev = sum(d["revenue"] or 0 for d in data_yest)
+    table_yest = build_table(data_yest_m) if data_yest_m else []
+    table_today = build_pickup_table(data_today_m, data_yest_m)
+
+    # Totals reference the filtered month for variance boxes
+    tot_today_rns = sum(d["rns"] or 0 for d in data_today_m)
+    tot_yest_rns = sum(d["rns"] or 0 for d in data_yest_m)
+    tot_today_rev = sum(d["revenue"] or 0 for d in data_today_m)
+    tot_yest_rev = sum(d["revenue"] or 0 for d in data_yest_m)
 
     variance_rns = tot_today_rns - tot_yest_rns
     variance_rev = round(tot_today_rev - tot_yest_rev, 2)
@@ -379,16 +486,16 @@ def pickup():
     ]
     chart_today = [round(tot_yest_rev, 2), round(tot_today_rev, 2)]
 
-    daily = build_daily_chart_series(data_today, data_yest)
+    daily = build_daily_chart_series(data_today_m, data_yest_m)
 
     # Carica target mensili dalla tabella settings
     with get_db() as conn:
         settings_rows = conn.execute("SELECT month, target_occ, target_revenue FROM settings").fetchall()
     targets_by_month = {r["month"]: {"occ": r["target_occ"] or 0, "rev": r["target_revenue"] or 0} for r in settings_rows}
 
-    # Per ciascuna data in daily_labels calcolo target giornaliero
-    today_map_for_targets = {d["stay_date"]: d for d in data_today}
-    yest_map_for_targets = {d["stay_date"]: d for d in data_yest}
+    # Daily targets computed on the filtered-month dates
+    today_map_for_targets = {d["stay_date"]: d for d in data_today_m}
+    yest_map_for_targets = {d["stay_date"]: d for d in data_yest_m}
     all_dates_sorted = sorted(set(today_map_for_targets.keys()) | set(yest_map_for_targets.keys()))
 
     daily_target_occ = []
@@ -408,8 +515,6 @@ def pickup():
 
     return render_template(
         "pickup.html",
-        available=available,
-        ref_date=ref_date,
         today=ref_date,
         yesterday=prev_date,
         table_yest=table_yest,
