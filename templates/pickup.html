@@ -1,58 +1,9 @@
 {% extends "base.html" %}
+{% set show_filters = true %}
 {% set active = "pickup" %}
 {% block content %}
 
 <style>
-  .priceup-filter-bar {
-    display: flex;
-    align-items: stretch;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-  .priceup-filter {
-    display: flex;
-    align-items: stretch;
-    background: #fff;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-    overflow: hidden;
-    min-width: 320px;
-  }
-  .priceup-filter-label {
-    background: #2a9d8f;
-    color: #fff;
-    padding: 0.55rem 1rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    font-size: 0.9rem;
-  }
-  .priceup-filter-value {
-    padding: 0.55rem 0.9rem;
-    display: flex;
-    align-items: center;
-    flex: 1;
-    font-weight: 500;
-    color: #333;
-    border: none;
-    background: #fff;
-    outline: none;
-    min-width: 140px;
-  }
-  .priceup-filter-actions {
-    display: flex;
-    border-left: 1px solid #eee;
-  }
-  .priceup-filter-actions button {
-    background: #fff;
-    border: none;
-    padding: 0 0.8rem;
-    color: #666;
-    cursor: pointer;
-    border-left: 1px solid #eee;
-  }
-  .priceup-filter-actions button:hover { background: #f0faf9; color: #2a9d8f; }
 
   .dash-card {
     background: #fff;
@@ -138,20 +89,6 @@
   }
 </style>
 
-<div class="priceup-filter-bar">
-  <form method="get" action="/pickup" class="priceup-filter" id="refDateForm">
-    <span class="priceup-filter-label">Data di riferimento</span>
-    <select name="ref_date" class="priceup-filter-value" onchange="document.getElementById('refDateForm').submit()">
-      {% for d in available %}
-      <option value="{{ d }}" {% if d == ref_date %}selected{% endif %}>{{ d }}</option>
-      {% endfor %}
-    </select>
-    <div class="priceup-filter-actions">
-      <button type="button" onclick="navRef(-1)" title="Precedente">&lsaquo;</button>
-      <button type="button" onclick="navRef(1)" title="Successivo">&rsaquo;</button>
-    </div>
-  </form>
-</div>
 
 {% if not today %}
 <div class="alert alert-info">
@@ -278,7 +215,7 @@
 <!-- TABELLE -->
 {% if table_yest %}
 <div class="dash-card">
-  <div class="dash-card-header">{{ prev_dt.strftime('%d/%m/%Y') if prev_dt else '—' }} &ndash; PickUp</div>
+  <div class="dash-card-header">{{ prev_dt.strftime('%d/%m/%Y') if prev_dt else '—' }} &ndash; PickUp {{ month_name }} {{ month[:4] }}</div>
   <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead>
@@ -304,7 +241,7 @@
 {% endif %}
 
 <div class="dash-card">
-  <div class="dash-card-header">{{ ref_dt.strftime('%d/%m/%Y') if ref_dt else '—' }} &ndash; PickUp</div>
+  <div class="dash-card-header">{{ ref_dt.strftime('%d/%m/%Y') if ref_dt else '—' }} &ndash; PickUp {{ month_name }} {{ month[:4] }}</div>
   <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead>
@@ -338,17 +275,6 @@
 
 <script>
 const COLOR = { main: '#2a9d8f', mainLight: '#8ecdc8', mainBg: 'rgba(42,157,143,0.15)', accent: '#e63946', gray: '#d1d5db', warn: '#f4a261' };
-const available = {{ available|tojson }};
-const curRef = {{ ref_date|tojson if ref_date else 'null' }};
-
-function navRef(delta){
-  if(!curRef || !available.length) return;
-  var idx = available.indexOf(curRef);
-  if(idx < 0) return;
-  var newIdx = idx - delta; // available è ordered DESC: -1 = giorno precedente (idx+1), +1 = successivo (idx-1)
-  if(newIdx < 0 || newIdx >= available.length) return;
-  window.location.href = '/pickup?ref_date=' + available[newIdx];
-}
 
 function euroFmt(v){ return '€ ' + Number(v).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
