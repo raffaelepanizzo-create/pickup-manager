@@ -5,7 +5,7 @@ REM   Esegui da Prompt dei comandi nella cartella del progetto.
 REM ==================================================================
 
 echo.
-echo [1/4] Verifica Python...
+echo [1/5] Verifica Python...
 python --version >nul 2>&1
 if errorlevel 1 (
     echo ERRORE: Python non trovato. Installa Python 3.10+ da python.org
@@ -15,14 +15,14 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/4] Creazione virtual environment in .venv ...
+echo [2/5] Creazione virtual environment in .venv ...
 if not exist .venv (
     python -m venv .venv
 )
 call .venvScriptsactivate.bat
 
 echo.
-echo [3/4] Installazione dipendenze...
+echo [3/5] Installazione dipendenze...
 python -m pip install --upgrade pip
 python -m pip install -r requirements-build.txt
 if errorlevel 1 (
@@ -32,7 +32,16 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/4] Build con PyInstaller...
+echo.
+echo [4/5] Download vendor assets (Bootstrap, Chart.js)...
+python tools\download_vendor_assets.py
+if errorlevel 1 (
+    echo ERRORE durante download degli asset vendor.
+    pause
+    exit /b 1
+)
+
+echo [5/5] Build con PyInstaller...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 pyinstaller pickup_manager.spec
